@@ -1,0 +1,197 @@
+
+<html>
+	<head>
+		  	<meta charset="utf-8">
+        <title>AngularJS 静态服务端json 下拉地址菜单 Demo</title>
+        <script src="http://cdn.bootcss.com/angular.js/1.0.7/angular.min.js"></script>
+      
+  </head>
+  <body  ng-app="starter"  ng-controller="modelListCtrl">
+		无数据库（ 静态服务端json）+angularjs实现 下拉框demo:
+                           省：
+                            <select id="sheng" style="min-width:142px"  ng-model="sheng" ng-options="p.code as p.name  for p in shengList" ng-change="changeSheng()"></select>
+                            市：
+                            <select id="shi" style="min-width:150px" ng-model="shi" ng-options="p.code as p.name  for p in shiList" ng-change="changeShi()"> </select>
+                            区/县：
+                            <select id="qu" style="min-width:150px" ng-model="xian" ng-options="p.code as p.name  for p in xianList"  ></select>
+                       
+	</body>
+
+</html>
+
+<script>
+var starter = angular.module('starter', ['serviceList'  ])
+
+starter.controller("modelListCtrl", function ($rootScope, $scope,  Apis) {
+	  //初始化省
+    $scope.initSheng=function(){
+        Apis.getShengList().then(function (res) {
+            if (res.length == 0)
+                alert("没有符合查询条件省的数据");
+            else{
+                $scope.shengList = res;
+                $scope.shengList.push({code:"all",name:"全部"});
+                $scope.sheng="all";//默认选择全部
+            }
+
+        }, function (res) {
+            $alert(res);
+        });
+    }
+    //更改省
+    $scope.changeSheng=function( ){
+        Apis.getShiList().then(function (res) {
+            if (res.length == 0 )
+                alert("没有符合查询条件城市的数据");
+            else{
+                $scope.shiList= res[$scope.sheng];
+                $scope.shiList.push({code:"all",name:"全部"});
+                $scope.shi="all";//默认选择全部
+            }
+
+        }, function (res) {
+            $alert(res);
+        });
+        $scope.xianList=undefined;//重置县的选择
+    }
+    //更改市
+    $scope.changeShi=function(){
+        Apis.getXianList().then(function (res) {
+            if (res.length == 0 )
+                alert("没有符合查询条件县的数据");
+            else{
+                $scope.xianList= res[$scope.shi];
+                $scope.xianList.push({code:"all",name:"全部"});
+                $scope.xian="all";//默认选择全部
+            }
+
+        }, function (res) {
+           $alert(res);
+        });
+    }
+	
+		function init() {
+			alert(2)
+
+			$scope.initSheng();
+		}
+	
+		init() ;
+	});
+	
+
+	
+	angular.module('serviceList', [])
+	  //常量
+    .constant('SERVER', {
+        url: {
+            index: "",
+            file: "",
+            mp: "",
+            auther: "",
+            micro: ""
+        },
+
+        testUrl: {
+            mp: 'http://localhost:8080'
+        },
+        version: {
+            version: '1.0.2'
+        }
+    })
+    //异步传输数据
+    .service('ConnectSev', ['$http', '$q', 'SERVER', function ($http, $q, SERVER) {
+        this.connectService = function (url, data, target) {
+            if (!angular.isElement(target)) {
+                target = target.currentTarget;
+            }
+
+            var url = SERVER.testUrl.mp + url;
+
+            var defer = $q.defer();
+
+            $http.post(url, data)
+                .success(function (result) {
+                    defer.resolve(result);
+                    //console.log("successUrl:[" + url + "]" + " returnData：" + JSON.stringify(result));
+                    //console.log("sendData: " + JSON.stringify(data));
+                })
+                .error(function (err) {
+                    if (err == null) {
+                        console.error('服务器或网络异常');
+                        return;
+                    } else {
+                        defer.reject(err);
+                        //console.log("errorUrl:[" + url + "]" + JSON.stringify(err));
+                        //console.log("sendData: " + JSON.stringify(data));
+                    }
+                    //err == '服务器或网络异常';
+
+                });
+
+            return defer.promise;
+        };
+
+    }])
+	 //接口对象
+    .factory('Apis', function ($http, $q, ConnectSev) {
+        var ApisObj = {};
+        var _apiurl = {
+
+            auth: {
+                login: "/admin/login"
+            },
+            staticdata:{
+                getShengList:"/staticdata/sheng.json",
+                getShiList:"/staticdata/shi.json",
+                getXianList:"/staticdata/xian.json"
+            }
+        };
+
+        function makeApi() {
+            for (var i in _apiurl) {
+
+                if (typeof _apiurl[i] == 'object') {
+                    for (var j in _apiurl[i]) {
+
+                        (function (fnName, url) {
+                            ApisObj[fnName] = function (params,page) {
+                                var this_params = angular.toJson(params);
+
+                                if(page!=undefined){
+                                    var theRealUrl;
+                                    if(url.indexOf('?')==-1)
+                                        theRealUrl=url+"?p="+page;
+                                    else
+                                        theRealUrl=url+"&p="+page;
+
+                                    return ConnectSev.connectService(theRealUrl, this_params, '');
+                                }
+
+                                return ConnectSev.connectService(url, this_params, '');
+                            };
+                        })(j, _apiurl[i][j]);
+
+                    }
+                } else {
+
+                    (function (fnName, url) {
+                        ApisObj[fnName] = function (params) {
+
+                            var this_params = angular.toJson(params);
+                            return ConnectSev.connectService(url, this_params, '');
+                        };
+                    })(i, _apiurl[i]);
+
+                }
+            }
+        }
+
+        makeApi();
+
+        return ApisObj;
+    })
+	
+
+	
+</script>
